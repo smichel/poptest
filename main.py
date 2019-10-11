@@ -2,8 +2,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
-plt.rcParams['animation.ffmpeg_path'] = 'C:/Users/u300675/Downloads/ffmpeg-4.2.1.tar'
-
+import matplotlib.animation as animation
 from scipy import ndimage
 
 def coriolis(lat,vel_ang=2*np.pi/86400):
@@ -101,17 +100,13 @@ for t in range(timesteps):
 timesteps =np.where(np.sum(np.sum(pop_time,axis=1),axis=0)==0)[0][0]
 for t in range(timesteps):
     if t == 0:
-        fig, axes = plt.subplots(2,1)
+        fig, axes = plt.subplots(2,1,figsize=(10,8))
         img_biom = axes[0].imshow(biomass_time[:,:,t],cmap=plt.get_cmap('YlGn'))
         img_pop = axes[1].imshow(pop_time[:, :, t])
         s_pop = fig.colorbar(img_pop,ax=axes[1])
-       #s_pop.set_clim(0, 2000)
-        #s_pop.set_ticks(np.arange(0,2100,200))
         s_pop.draw_all()
         s_pop.set_label('Population')
         s_bio = fig.colorbar(img_biom,ax=axes[0])
-        #s_bio.set_clim(0, 1000)
-        #s_bio.set_ticks(np.arange(0,1100,100))
         s_bio.draw_all()
         s_bio.set_label('Biomasse')
     else:
@@ -123,13 +118,9 @@ fig, axes = plt.subplots(2, 1)
 img_biom = axes[0].imshow(biomass_time[:, :, t], cmap=plt.get_cmap('YlGn'))
 img_pop = axes[1].imshow(pop_time[:, :, t])
 s_pop = fig.colorbar(img_pop, ax=axes[1])
-# s_pop.set_clim(0, 2000)
-# s_pop.set_ticks(np.arange(0,2100,200))
 s_pop.draw_all()
 s_pop.set_label('Population')
 s_bio = fig.colorbar(img_biom, ax=axes[0])
-# s_bio.set_clim(0, 1000)
-# s_bio.set_ticks(np.arange(0,1100,100))
 s_bio.draw_all()
 s_bio.set_label('Biomasse')
 
@@ -140,12 +131,9 @@ def animate(t):
 
 
 anim = animation.FuncAnimation(fig, animate,
-                               frames=timesteps,
-                               interval=200, repeat=1,
-                               blit=True)
-anim.save('C:\Users\u300675\poptest', fps=5,
-          extra_args=['-vcodec', 'h264',
-                      '-pix_fmt', 'yuv420p'])
+                               frames=timesteps)
+anim.save("./output.gif", writer='imagemagick', fps=5)
+
 
 for t in range(timesteps):
     if t == 0:
