@@ -49,8 +49,9 @@ def migration(i,j,pop,biom,landmask):
         pop_delta[i,j] = pop_res
         return pop_delta,biom_delta
 
-
-np.random.seed(1)
+def regrowth(t, biom, time):
+    test
+#np.random.seed(2)
 lat = np.arange(-80,81,5)
 
 lon = np.arange(0,360,5)
@@ -80,8 +81,10 @@ T_nested[1:-1,1:-1] = T
 biomass = (T_nested-250)*100 - height_nested * 2000
 biomass[biomass<0] = 0
 biomass[height_nested==0] = 0
+biomass_ini = np.copy(biomass)
 pop = np.zeros(biomass.shape)
 pop[np.random.randint(1,pop.shape[0]-1),np.random.randint(1,pop.shape[1]-1)] = 1000
+
 timesteps = 1000
 biomass_time = np.zeros((biomass.shape[0],biomass.shape[1],timesteps))
 pop_time = np.zeros((pop.shape[0],pop.shape[1],timesteps))
@@ -97,7 +100,7 @@ for t in range(timesteps):
     pop_time[:,:,t] = pop
     biomass_time[:, :, t] = biomass
 
-timesteps =np.where(np.sum(np.sum(pop_time,axis=1),axis=0)==0)[0][0]
+#timesteps =np.where(np.sum(np.sum(pop_time,axis=1),axis=0)==0)[0][0]
 for t in range(timesteps):
     if t == 0:
         fig, axes = plt.subplots(2,1,figsize=(10,8))
@@ -114,25 +117,27 @@ for t in range(timesteps):
         img_pop.set_data(pop_time[:, :, t])
     plt.pause(0.05)
 
-fig, axes = plt.subplots(2, 1)
-img_biom = axes[0].imshow(biomass_time[:, :, t], cmap=plt.get_cmap('YlGn'))
-img_pop = axes[1].imshow(pop_time[:, :, t])
-s_pop = fig.colorbar(img_pop, ax=axes[1])
-s_pop.draw_all()
-s_pop.set_label('Population')
-s_bio = fig.colorbar(img_biom, ax=axes[0])
-s_bio.draw_all()
-s_bio.set_label('Biomasse')
+animate = 0
+if animate:
+    fig, axes = plt.subplots(2, 1)
+    img_biom = axes[0].imshow(biomass_time[:, :, t], cmap=plt.get_cmap('YlGn'))
+    img_pop = axes[1].imshow(pop_time[:, :, t])
+    s_pop = fig.colorbar(img_pop, ax=axes[1])
+    s_pop.draw_all()
+    s_pop.set_label('Population')
+    s_bio = fig.colorbar(img_biom, ax=axes[0])
+    s_bio.draw_all()
+    s_bio.set_label('Biomasse')
 
-def animate(t):
-    img_biom.set_data(biomass_time[:, :, t])
-    img_pop.set_data(pop_time[:, :, t])
-    return [img_biom,img_pop]
+    def animate(t):
+        img_biom.set_data(biomass_time[:, :, t])
+        img_pop.set_data(pop_time[:, :, t])
+        return [img_biom,img_pop]
 
 
-anim = animation.FuncAnimation(fig, animate,
+    anim = animation.FuncAnimation(fig, animate,
                                frames=timesteps)
-anim.save("./output.gif", writer='imagemagick', fps=5)
+    anim.save("./output.gif", writer='imagemagick', fps=5)
 
 
 for t in range(timesteps):
