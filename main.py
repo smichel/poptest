@@ -3,7 +3,12 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+plt.rcParams['animation.ffmpeg_path'] = 'C:\\Program Files\\ffmpeg\\bin\\ffmpeg.exe'
 from scipy import ndimage
+import subprocess
+
+
+
 
 def coriolis(lat,vel_ang=2*np.pi/86400):
     return 2*vel_ang*np.sin(np.deg2rad(lat))
@@ -25,6 +30,8 @@ def migration(i,j,pop,biom,landmask):
             pop_delta[i, j] = -pop[i, j]
             biom_delta[i,j] = biom_res
             return pop_delta,biom_delta
+        elif biom_surround < pop_res:
+            pop_res = biom_surround
         biom_weight = np.array([biom[i, j - 1], biom[i + 1, j],  biom[i, j + 1], biom[i - 1, j]]) / biom_surround
 
         pop_delta = np.zeros(pop.shape)
@@ -49,9 +56,7 @@ def migration(i,j,pop,biom,landmask):
         pop_delta[i,j] = pop_res
         return pop_delta,biom_delta
 
-def regrowth(t, biom, time):
-    test
-#np.random.seed(2)
+np.random.seed(1)
 lat = np.arange(-80,81,5)
 
 lon = np.arange(0,360,5)
@@ -85,9 +90,12 @@ biomass_ini = np.copy(biomass)
 pop = np.zeros(biomass.shape)
 pop[np.random.randint(1,pop.shape[0]-1),np.random.randint(1,pop.shape[1]-1)] = 1000
 
-timesteps = 1000
+timesteps = 2000
+minimum_growthtime = 5
 biomass_time = np.zeros((biomass.shape[0],biomass.shape[1],timesteps))
 pop_time = np.zeros((pop.shape[0],pop.shape[1],timesteps))
+
+veg_time = np.zeros((pop.shape[0],pop.shape[1]))
 for t in range(timesteps):
     idxs = np.where(pop>0)
     for i in range(len(idxs[0])):
@@ -95,29 +103,57 @@ for t in range(timesteps):
         pop +=pop_delta
         biomass += biomass_delta
 
+    veg_time[~land_mask] = np.nan
+    veg_time[biomass<=0] += 1
+
+    biomass[veg_time>minimum_growthtime] += (biomass_ini[veg_time>minimum_growthtime]-
+                                             biomass[veg_time>minimum_growthtime])*\
+                                            np.e**(-0.5**(veg_time[veg_time>minimum_growthtime]-minimum_growthtime))
     pop[pop<0] = 0
     biomass[biomass<0] = 0
+    biomass[~land_mask] = 0
+    veg_time[biomass==biomass_ini] = 0
+    veg_time[pop>0] = 0
     pop_time[:,:,t] = pop
     biomass_time[:, :, t] = biomass
 
-#timesteps =np.where(np.sum(np.sum(pop_time,axis=1),axis=0)==0)[0][0]
-for t in range(timesteps):
-    if t == 0:
-        fig, axes = plt.subplots(2,1,figsize=(10,8))
-        img_biom = axes[0].imshow(biomass_time[:,:,t],cmap=plt.get_cmap('YlGn'))
-        img_pop = axes[1].imshow(pop_time[:, :, t])
-        s_pop = fig.colorbar(img_pop,ax=axes[1])
-        s_pop.draw_all()
-        s_pop.set_label('Population')
-        s_bio = fig.colorbar(img_biom,ax=axes[0])
-        s_bio.draw_all()
-        s_bio.set_label('Biomasse')
-    else:
-        img_biom.set_data(biomass_time[:,:,t])
-        img_pop.set_data(pop_time[:, :, t])
-    plt.pause(0.05)
+cmdstring = ('ffmpeg',
+             '-y', '-r', '30',  # overwrite, 30fps
+             '-s', '%dx%d' % (700, 700),  # size of image string
+             '-pix_fmt', 'argb',  # format
+             '-f', 'rawvideo', '-i', '-', '-b:v', '5M', '-crf', '14',  # input from pipe, bitrate, compression
+             # tell ffmpeg to expect raw video from the pipe
+             '-vcodec', 'mpeg4', 'output.mp4')  # output encoding
+animate = 1
+if animate:
 
-animate = 0
+
+    f = plt.figure(frameon=True, figsize=(7, 7))
+    p = subprocess.Popen(cmdstring, stdin=subprocess.PIPE)
+    ax1 = f.add_subplot(211)
+    ax2 = f.add_subplot(212)
+
+    for t in range(len(biomass_time)):
+        if t == 0:
+            img_biom = ax1.imshow(biomass_time[:, :, t], cmap=plt.get_cmap('YlGn'))
+            img_pop = ax2.imshow(pop_time[:, :, t])
+            s_pop = f.colorbar(img_pop, ax=ax2)
+            s_pop.draw_all()
+            s_pop.set_label('Population')
+            s_bio = f.colorbar(img_biom, ax=ax1)
+            s_bio.draw_all()
+            s_bio.set_label('Biomasse')
+        else:
+            img_biom.set_data(biomass_time[:, :, t])
+            img_pop.set_data(pop_time[:, :, t])
+        f.canvas.draw()
+
+        string = f.canvas.tostring_argb()
+
+        p.stdin.write(string)
+
+    p.communicate()
+
 if animate:
     fig, axes = plt.subplots(2, 1)
     img_biom = axes[0].imshow(biomass_time[:, :, t], cmap=plt.get_cmap('YlGn'))
@@ -135,9 +171,31 @@ if animate:
         return [img_biom,img_pop]
 
 
+    FFwriter = animation.FFMpegWriter(fps=30, extra_args=['-vcodec', 'libx264'])
     anim = animation.FuncAnimation(fig, animate,
-                               frames=timesteps)
-    anim.save("./output.gif", writer='imagemagick', fps=5)
+                               frames=timesteps,interval=100,blit=False)
+    anim.save("./output.mp4", writer=FFwriter)
+
+
+              #extra_args=['-vcodec', 'h264',
+               #           '-pix_fmt', 'yuv420p'])
+#timesteps =np.where(np.sum(np.sum(pop_time,axis=1),axis=0)==0)[0][0]
+for t in range(timesteps):
+    if t == 0:
+        fig, axes = plt.subplots(2,1,figsize=(10,8))
+        img_biom = axes[0].imshow(biomass_time[:,:,t],cmap=plt.get_cmap('YlGn'))
+        img_pop = axes[1].imshow(pop_time[:, :, t])
+        s_pop = fig.colorbar(img_pop,ax=axes[1])
+        s_pop.draw_all()
+        s_pop.set_label('Population')
+        s_bio = fig.colorbar(img_biom,ax=axes[0])
+        s_bio.draw_all()
+        s_bio.set_label('Biomasse')
+    else:
+        img_biom.set_data(biomass_time[:,:,t])
+        img_pop.set_data(pop_time[:, :, t])
+    plt.pause(0.05)
+
 
 
 for t in range(timesteps):
