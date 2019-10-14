@@ -17,7 +17,7 @@ def coriolis(lat,vel_ang=2*np.pi/86400):
 def migration(i,j,pop,biom,landmask):
     if pop[i,j]>biom[i,j]:
         pop_res = pop[i,j] - biom[i,j]
-        biom_res = -pop[i,j]*1.1
+        biom_res = -pop[i,j]*1.01
         biom_n = biom[i, j - 1]
         biom_e = biom[i + 1, j]
         biom_s = biom[i, j + 1]
@@ -45,7 +45,7 @@ def migration(i,j,pop,biom,landmask):
 
         return pop_delta, biom_delta
     elif pop[i,j]<=biom[i,j]:
-        pop_res = pop[i, j] * .5
+        pop_res = pop[i, j] * .25
 
         biom_res = -pop[i,j]
         if pop[i, j] + pop_res > biom[i,j] + biom_res:
@@ -56,7 +56,7 @@ def migration(i,j,pop,biom,landmask):
         pop_delta[i,j] = pop_res
         return pop_delta,biom_delta
 
-np.random.seed(1)
+#np.random.seed(1)
 lat = np.arange(-80,81,5)
 
 lon = np.arange(0,360,5)
@@ -90,7 +90,7 @@ biomass_ini = np.copy(biomass)
 pop = np.zeros(biomass.shape)
 pop[np.random.randint(1,pop.shape[0]-1),np.random.randint(1,pop.shape[1]-1)] = 1000
 
-timesteps = 2000
+timesteps = 500
 minimum_growthtime = 5
 biomass_time = np.zeros((biomass.shape[0],biomass.shape[1],timesteps))
 pop_time = np.zeros((pop.shape[0],pop.shape[1],timesteps))
@@ -113,7 +113,7 @@ for t in range(timesteps):
     biomass[biomass<0] = 0
     biomass[~land_mask] = 0
     veg_time[biomass==biomass_ini] = 0
-    veg_time[pop>0] = 0
+    #veg_time[pop>0] = 0
     pop_time[:,:,t] = pop
     biomass_time[:, :, t] = biomass
 
@@ -124,7 +124,7 @@ cmdstring = ('ffmpeg',
              '-f', 'rawvideo', '-i', '-', '-b:v', '5M', '-crf', '14',  # input from pipe, bitrate, compression
              # tell ffmpeg to expect raw video from the pipe
              '-vcodec', 'mpeg4', 'output.mp4')  # output encoding
-animate = 1
+animate = 0
 if animate:
 
 
